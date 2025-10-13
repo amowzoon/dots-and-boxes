@@ -1,4 +1,3 @@
-# ai-service/app.py
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
@@ -147,11 +146,11 @@ class DotsAndBoxesAI:
     
     def evaluate_board(self, game_state):
         """Evaluate the board state for the AI player (player 2)"""
-        player1_score = game_state['scores'][0]
-        player2_score = game_state['scores'][1]
+        player_score = game_state['scores'][0]
+        ai_score = game_state['scores'][1]
         
         # Simple evaluation: score difference
-        return player2_score - player1_score
+        return ai_score - player_score
     
     def is_game_over(self, game_state):
         total_boxes = game_state['gridSize'] * game_state['gridSize']
