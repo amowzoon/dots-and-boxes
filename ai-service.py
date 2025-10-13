@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import numpy as np
+import random
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -16,11 +16,19 @@ class DotsAndBoxesAI:
         if not possible_moves:
             return None
             
+        # For easy difficulty, sometimes make random moves
+        if hasattr(self, 'difficulty') and self.difficulty == 'easy' and random.random() < 0.3:
+            return random.choice(possible_moves)
+        
+        # For medium difficulty, occasionally make random moves
+        if hasattr(self, 'difficulty') and self.difficulty == 'medium' and random.random() < 0.1:
+            return random.choice(possible_moves)
+        
         best_score = float('-inf')
         best_move = possible_moves[0]
         
         for move in possible_moves:
-            new_state = self.make_move(game_state.copy(), move)
+            new_state = self.make_move(self.deep_copy_game_state(game_state), move)
             score = self.minimax(new_state, self.max_depth - 1, False, float('-inf'), float('inf'))
             
             if score > best_score:
@@ -28,6 +36,17 @@ class DotsAndBoxesAI:
                 best_move = move
                 
         return best_move
+    
+    def deep_copy_game_state(self, state):
+        """Create a deep copy of game state without numpy"""
+        return {
+            'gridSize': state['gridSize'],
+            'horizontalLines': [row[:] for row in state['horizontalLines']],
+            'verticalLines': [row[:] for row in state['verticalLines']],
+            'boxes': [row[:] for row in state['boxes']],
+            'currentPlayer': state['currentPlayer'],
+            'scores': state['scores'][:]
+        }
     
     def minimax(self, game_state, depth, is_maximizing, alpha, beta):
         if depth == 0 or self.is_game_over(game_state):
@@ -38,20 +57,20 @@ class DotsAndBoxesAI:
         if is_maximizing:
             max_eval = float('-inf')
             for move in possible_moves:
-                new_state = self.make_move(game_state.copy(), move)
-                eval = self.minimax(new_state, depth - 1, False, alpha, beta)
-                max_eval = max(max_eval, eval)
-                alpha = max(alpha, eval)
+                new_state = self.make_move(self.deep_copy_game_state(game_state), move)
+                eval_score = self.minimax(new_state, depth - 1, False, alpha, beta)
+                max_eval = max(max_eval, eval_score)
+                alpha = max(alpha, eval_score)
                 if beta <= alpha:
                     break
             return max_eval
         else:
             min_eval = float('inf')
             for move in possible_moves:
-                new_state = self.make_move(game_state.copy(), move)
-                eval = self.minimax(new_state, depth - 1, True, alpha, beta)
-                min_eval = min(min_eval, eval)
-                beta = min(beta, eval)
+                new_state = self.make_move(self.deep_copy_game_state(game_state), move)
+                eval_score = self.minimax(new_state, depth - 1, True, alpha, beta)
+                min_eval = min(min_eval, eval_score)
+                beta = min(beta, eval_score)
                 if beta <= alpha:
                     break
             return min_eval
@@ -77,34 +96,24 @@ class DotsAndBoxesAI:
         return moves
     
     def make_move(self, game_state, move):
-        # Create a deep copy to avoid modifying original
-        new_state = {
-            'gridSize': game_state['gridSize'],
-            'horizontalLines': [row[:] for row in game_state['horizontalLines']],
-            'verticalLines': [row[:] for row in game_state['verticalLines']],
-            'boxes': [row[:] for row in game_state['boxes']],
-            'currentPlayer': game_state['currentPlayer'],
-            'scores': game_state['scores'].copy()
-        }
-        
         if move['type'] == 'horizontal':
-            new_state['horizontalLines'][move['row']][move['col']] = True
+            game_state['horizontalLines'][move['row']][move['col']] = True
         else:
-            new_state['verticalLines'][move['row']][move['col']] = True
+            game_state['verticalLines'][move['row']][move['col']] = True
         
         # Check for completed boxes
-        completed_boxes = self.check_completed_boxes(new_state, move)
+        completed_boxes = self.check_completed_boxes(game_state, move)
         
         if completed_boxes:
             for box in completed_boxes:
-                new_state['boxes'][box['row']][box['col']] = new_state['currentPlayer']
-                new_state['scores'][new_state['currentPlayer'] - 1] += 1
+                game_state['boxes'][box['row']][box['col']] = game_state['currentPlayer']
+                game_state['scores'][game_state['currentPlayer'] - 1] += 1
             # Same player continues if boxes were completed
         else:
             # Switch players
-            new_state['currentPlayer'] = 3 - new_state['currentPlayer']  # Switch between 1 and 2
+            game_state['currentPlayer'] = 3 - game_state['currentPlayer']  # Switch between 1 and 2
         
-        return new_state
+        return game_state
     
     def check_completed_boxes(self, game_state, move):
         completed_boxes = []
@@ -159,9 +168,9 @@ class DotsAndBoxesAI:
 
 # Initialize AI with different difficulty levels
 ai_instances = {
-    'easy': DotsAndBoxesAI(depth=2),
-    'medium': DotsAndBoxesAI(depth=3),
-    'hard': DotsAndBoxesAI(depth=4)
+    'easy': DotsAndBoxesAI(depth=1),
+    'medium': DotsAndBoxesAI(depth=2),
+    'hard': DotsAndBoxesAI(depth=3)
 }
 
 @app.route('/api/ai/move', methods=['POST'])
@@ -172,6 +181,7 @@ def get_ai_move():
         difficulty = data.get('difficulty', 'medium')
         
         ai = ai_instances.get(difficulty, ai_instances['medium'])
+        ai.difficulty = difficulty  # Set difficulty for random moves
         move = ai.get_move(game_state)
         
         return jsonify({
