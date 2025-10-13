@@ -46,20 +46,25 @@
             border-radius: 2px;
         }
         
-        .player1-line {
+        .player-line {
             background-color: #3b82f6 !important;
         }
         
-        .player2-line {
+        .ai-line {
             background-color: #ef4444 !important;
         }
         
-        .player1-box {
+        .player-box {
             background-color: #bfdbfe;
         }
         
-        .player2-box {
+        .ai-box {
             background-color: #fecaca;
+        }
+        
+        .ai-thinking {
+            opacity: 0.7;
+            pointer-events: none;
         }
         
         @media (max-width: 640px) {
@@ -73,7 +78,7 @@
 <body class="bg-gray-100 min-h-screen flex flex-col items-center py-8">
     <div class="container mx-auto px-4">
         <h1 class="text-4xl font-bold text-center text-gray-800 mb-2">Dots and Boxes</h1>
-        <p class="text-center text-gray-600 mb-8">Connect the dots to claim boxes!</p>
+        <p class="text-center text-gray-600 mb-8">Play against the AI! Connect the dots to claim boxes.</p>
         
         <div class="flex flex-col md:flex-row gap-8 justify-center items-start">
             <!-- Game controls -->
@@ -83,12 +88,21 @@
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Grid Size</label>
                     <div class="flex gap-2">
-                        <input type="number" id="rows" min="2" max="20" value="5" 
+                        <input type="number" id="rows" min="2" max="10" value="5" 
                                class="w-16 px-3 py-2 border border-gray-300 rounded-md text-center">
                         <span class="flex items-center">x</span>
-                        <input type="number" id="cols" min="2" max="20" value="5" 
+                        <input type="number" id="cols" min="2" max="10" value="5" 
                                class="w-16 px-3 py-2 border border-gray-300 rounded-md text-center">
                     </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">AI Difficulty</label>
+                    <select id="ai-difficulty" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
                 </div>
                 
                 <button id="start-game" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md transition mb-4">
@@ -96,20 +110,20 @@
                 </button>
                 
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Current Player</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Current Turn</label>
                     <div id="current-player" class="flex items-center gap-2">
                         <div class="w-6 h-6 rounded-full bg-blue-500"></div>
-                        <span>Player 1</span>
+                        <span>Your Turn</span>
                     </div>
                 </div>
                 
                 <div class="flex justify-between mb-2">
-                    <span class="text-sm text-gray-700">Player 1 (Blue)</span>
-                    <span id="player1-score" class="font-medium">0</span>
+                    <span class="text-sm text-gray-700">You (Blue)</span>
+                    <span id="player-score" class="font-medium">0</span>
                 </div>
                 <div class="flex justify-between">
-                    <span class="text-sm text-gray-700">Player 2 (Red)</span>
-                    <span id="player2-score" class="font-medium">0</span>
+                    <span class="text-sm text-gray-700">AI (Red)</span>
+                    <span id="ai-score" class="font-medium">0</span>
                 </div>
                 
                 <div id="game-status" class="mt-4 p-2 text-center rounded-md hidden"></div>
@@ -135,39 +149,42 @@
             // Game state variables
             let rows = 5;
             let cols = 5;
-            let currentPlayer = 1;
-            let player1Score = 0;
-            let player2Score = 0;
+            let currentPlayer = 1; // 1 for player, 2 for AI
+            let playerScore = 0;
+            let aiScore = 0;
             let gameActive = false;
             let boxes = [];
             let horizontalLines = [];
             let verticalLines = [];
+            let aiDifficulty = 'medium';
             
             // DOM elements
             const gameContainer = document.getElementById('game-container');
             const rowsInput = document.getElementById('rows');
             const colsInput = document.getElementById('cols');
+            const aiDifficultySelect = document.getElementById('ai-difficulty');
             const startGameBtn = document.getElementById('start-game');
             const resetGameBtn = document.getElementById('reset-game');
             const currentPlayerDisplay = document.getElementById('current-player');
-            const player1ScoreDisplay = document.getElementById('player1-score');
-            const player2ScoreDisplay = document.getElementById('player2-score');
+            const playerScoreDisplay = document.getElementById('player-score');
+            const aiScoreDisplay = document.getElementById('ai-score');
             const gameStatusDisplay = document.getElementById('game-status');
             
             // Initialize the game
             function initGame() {
                 rows = parseInt(rowsInput.value);
                 cols = parseInt(colsInput.value);
+                aiDifficulty = aiDifficultySelect.value;
                 
-                if (rows < 2 || rows > 20 || cols < 2 || cols > 20) {
-                    alert('Please enter grid size between 2 and 20');
+                if (rows < 2 || rows > 10 || cols < 2 || cols > 10) {
+                    alert('Please enter grid size between 2 and 10');
                     return;
                 }
                 
                 // Reset game state
                 currentPlayer = 1;
-                player1Score = 0;
-                player2Score = 0;
+                playerScore = 0;
+                aiScore = 0;
                 gameActive = true;
                 boxes = [];
                 horizontalLines = [];
@@ -175,9 +192,10 @@
                 
                 // Update UI
                 updatePlayerDisplay();
-                player1ScoreDisplay.textContent = '0';
-                player2ScoreDisplay.textContent = '0';
+                playerScoreDisplay.textContent = '0';
+                aiScoreDisplay.textContent = '0';
                 gameStatusDisplay.classList.add('hidden');
+                gameContainer.classList.remove('ai-thinking');
                 
                 // Calculate game board size
                 const dotSpacing = Math.min(400 / Math.max(rows, cols), 50);
@@ -254,7 +272,7 @@
             
             // Handle horizontal line click
             function handleHorizontalLineClick(e) {
-                if (!gameActive) return;
+                if (!gameActive || currentPlayer !== 1) return;
                 
                 const line = e.target;
                 const row = parseInt(line.dataset.row);
@@ -263,14 +281,15 @@
                 if (horizontalLines[row][col].claimedBy !== 0) return;
                 
                 horizontalLines[row][col].claimedBy = currentPlayer;
-                line.classList.add(currentPlayer === 1 ? 'player1-line' : 'player2-line');
+                line.classList.add('player-line');
                 
                 const boxClaimed = checkForBoxCompletion(row, col, 'horizontal');
                 
                 if (!boxClaimed) {
-                    switchPlayer();
+                    switchToAI();
                 } else {
                     updateScores();
+                    // Player continues turn if they claimed a box
                 }
                 
                 checkGameEnd();
@@ -278,7 +297,7 @@
             
             // Handle vertical line click
             function handleVerticalLineClick(e) {
-                if (!gameActive) return;
+                if (!gameActive || currentPlayer !== 1) return;
                 
                 const line = e.target;
                 const row = parseInt(line.dataset.row);
@@ -287,17 +306,166 @@
                 if (verticalLines[row][col].claimedBy !== 0) return;
                 
                 verticalLines[row][col].claimedBy = currentPlayer;
-                line.classList.add(currentPlayer === 1 ? 'player1-line' : 'player2-line');
+                line.classList.add('player-line');
                 
                 const boxClaimed = checkForBoxCompletion(row, col, 'vertical');
                 
                 if (!boxClaimed) {
-                    switchPlayer();
+                    switchToAI();
                 } else {
                     updateScores();
+                    // Player continues turn if they claimed a box
                 }
                 
                 checkGameEnd();
+            }
+            
+            // Switch to AI turn
+            function switchToAI() {
+                currentPlayer = 2;
+                updatePlayerDisplay();
+                gameContainer.classList.add('ai-thinking');
+                makeAIMove();
+            }
+            
+            // Switch to player turn
+            function switchToPlayer() {
+                currentPlayer = 1;
+                updatePlayerDisplay();
+                gameContainer.classList.remove('ai-thinking');
+            }
+            
+            // AI move function
+            async function makeAIMove() {
+                if (!gameActive || currentPlayer !== 2) return;
+                
+                try {
+                    const gameState = getGameState();
+                    const response = await fetch('http://localhost:5000/api/ai/move', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            gameState: gameState,
+                            difficulty: aiDifficulty
+                        }),
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success && data.move) {
+                        // Simulate AI thinking time
+                        setTimeout(() => {
+                            executeAIMove(data.move);
+                        }, 500);
+                    } else {
+                        throw new Error('Failed to get AI move');
+                    }
+                } catch (error) {
+                    console.error('AI move error:', error);
+                    // Fallback to random move
+                    makeRandomMove();
+                }
+            }
+            
+            // Get current game state for AI
+            function getGameState() {
+                const horizontalLinesState = [];
+                const verticalLinesState = [];
+                const boxesState = [];
+                
+                // Convert horizontal lines
+                for (let r = 0; r <= rows; r++) {
+                    horizontalLinesState[r] = [];
+                    for (let c = 0; c < cols; c++) {
+                        horizontalLinesState[r][c] = horizontalLines[r][c].claimedBy !== 0;
+                    }
+                }
+                
+                // Convert vertical lines
+                for (let r = 0; r < rows; r++) {
+                    verticalLinesState[r] = [];
+                    for (let c = 0; c <= cols; c++) {
+                        verticalLinesState[r][c] = verticalLines[r][c].claimedBy !== 0;
+                    }
+                }
+                
+                // Convert boxes
+                for (let r = 0; r < rows; r++) {
+                    boxesState[r] = [];
+                    for (let c = 0; c < cols; c++) {
+                        boxesState[r][c] = boxes[r][c].claimedBy;
+                    }
+                }
+                
+                return {
+                    gridSize: rows,
+                    horizontalLines: horizontalLinesState,
+                    verticalLines: verticalLinesState,
+                    boxes: boxesState,
+                    currentPlayer: currentPlayer,
+                    scores: [playerScore, aiScore]
+                };
+            }
+            
+            // Execute the AI's move
+            function executeAIMove(move) {
+                let boxClaimed = false;
+                
+                if (move.type === 'horizontal') {
+                    const line = horizontalLines[move.row][move.col];
+                    if (line.claimedBy === 0) {
+                        line.claimedBy = currentPlayer;
+                        line.element.classList.add('ai-line');
+                        boxClaimed = checkForBoxCompletion(move.row, move.col, 'horizontal');
+                    }
+                } else if (move.type === 'vertical') {
+                    const line = verticalLines[move.row][move.col];
+                    if (line.claimedBy === 0) {
+                        line.claimedBy = currentPlayer;
+                        line.element.classList.add('ai-line');
+                        boxClaimed = checkForBoxCompletion(move.row, move.col, 'vertical');
+                    }
+                }
+                
+                if (boxClaimed) {
+                    updateScores();
+                    // AI continues turn if it claimed a box
+                    makeAIMove();
+                } else {
+                    switchToPlayer();
+                }
+                
+                checkGameEnd();
+            }
+            
+            // Fallback random move function
+            function makeRandomMove() {
+                const possibleMoves = [];
+                
+                // Collect all available horizontal lines
+                for (let r = 0; r <= rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        if (horizontalLines[r][c].claimedBy === 0) {
+                            possibleMoves.push({ type: 'horizontal', row: r, col: c });
+                        }
+                    }
+                }
+                
+                // Collect all available vertical lines
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c <= cols; c++) {
+                        if (verticalLines[r][c].claimedBy === 0) {
+                            possibleMoves.push({ type: 'vertical', row: r, col: c });
+                        }
+                    }
+                }
+                
+                if (possibleMoves.length > 0) {
+                    const randomMove = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+                    executeAIMove(randomMove);
+                }
             }
             
             // Check if a line completion creates a box
@@ -306,25 +474,22 @@
                 
                 if (lineType === 'horizontal') {
                     // Check box above the line
-                    // Check box above the line
                     if (row > 0) {
                         const topLine = horizontalLines[row-1][col].claimedBy;
                         const leftLine = verticalLines[row-1][col].claimedBy;
                         const rightLine = verticalLines[row-1][col+1].claimedBy;
                         
                         if (topLine && leftLine && rightLine) {
-                            
                             if (boxes[row-1][col].claimedBy === 0) {
                                 boxes[row-1][col].claimedBy = currentPlayer;
                                 boxes[row-1][col].element.classList.add(
-                                    currentPlayer === 1 ? 'player1-box' : 'player2-box'
+                                    currentPlayer === 1 ? 'player-box' : 'ai-box'
                                 );
                                 boxClaimed = true;
                             }
                         }
                     }
                     
-                    // Check box below the line
                     // Check box below the line
                     if (row < rows) {
                         const bottomLine = horizontalLines[row+1] && horizontalLines[row+1][col].claimedBy;
@@ -332,11 +497,10 @@
                         const rightLine = verticalLines[row][col+1].claimedBy;
                         
                         if (bottomLine && leftLine && rightLine) {
-                            
                             if (boxes[row][col].claimedBy === 0) {
                                 boxes[row][col].claimedBy = currentPlayer;
                                 boxes[row][col].element.classList.add(
-                                    currentPlayer === 1 ? 'player1-box' : 'player2-box'
+                                    currentPlayer === 1 ? 'player-box' : 'ai-box'
                                 );
                                 boxClaimed = true;
                             }
@@ -344,18 +508,16 @@
                     }
                 } else { // vertical line
                     // Check box to the left of the line
-                    // Check box to the left of the line
                     if (col > 0) {
                         const leftLine = verticalLines[row][col-1].claimedBy;
                         const topLine = horizontalLines[row][col-1].claimedBy;
                         const bottomLine = horizontalLines[row+1] && horizontalLines[row+1][col-1].claimedBy;
                         
                         if (leftLine && topLine && bottomLine) {
-                            
                             if (boxes[row][col-1].claimedBy === 0) {
                                 boxes[row][col-1].claimedBy = currentPlayer;
                                 boxes[row][col-1].element.classList.add(
-                                    currentPlayer === 1 ? 'player1-box' : 'player2-box'
+                                    currentPlayer === 1 ? 'player-box' : 'ai-box'
                                 );
                                 boxClaimed = true;
                             }
@@ -363,18 +525,16 @@
                     }
                     
                     // Check box to the right of the line
-                    // Check box to the right of the line
                     if (col < cols) {
                         const rightLine = verticalLines[row][col+1].claimedBy;
                         const topLine = horizontalLines[row][col].claimedBy;
                         const bottomLine = horizontalLines[row+1] && horizontalLines[row+1][col].claimedBy;
                         
                         if (rightLine && topLine && bottomLine) {
-                            
                             if (boxes[row][col].claimedBy === 0) {
                                 boxes[row][col].claimedBy = currentPlayer;
                                 boxes[row][col].element.classList.add(
-                                    currentPlayer === 1 ? 'player1-box' : 'player2-box'
+                                    currentPlayer === 1 ? 'player-box' : 'ai-box'
                                 );
                                 boxClaimed = true;
                             }
@@ -385,54 +545,53 @@
                 return boxClaimed;
             }
             
-            // Switch to the other player
-            function switchPlayer() {
-                currentPlayer = currentPlayer === 1 ? 2 : 1;
-                updatePlayerDisplay();
-            }
-            
             // Update player display
             function updatePlayerDisplay() {
-                const playerColor = currentPlayer === 1 ? 'bg-blue-500' : 'bg-red-500';
-                const playerText = currentPlayer === 1 ? 'Player 1' : 'Player 2';
-                
-                currentPlayerDisplay.innerHTML = `
-                    <div class="w-6 h-6 rounded-full ${playerColor}"></div>
-                    <span>${playerText}</span>
-                `;
+                if (currentPlayer === 1) {
+                    currentPlayerDisplay.innerHTML = `
+                        <div class="w-6 h-6 rounded-full bg-blue-500"></div>
+                        <span>Your Turn</span>
+                    `;
+                } else {
+                    currentPlayerDisplay.innerHTML = `
+                        <div class="w-6 h-6 rounded-full bg-red-500"></div>
+                        <span>AI Thinking...</span>
+                    `;
+                }
             }
             
             // Update scores
             function updateScores() {
-                player1Score = 0;
-                player2Score = 0;
+                playerScore = 0;
+                aiScore = 0;
                 
                 for (let r = 0; r < rows; r++) {
                     for (let c = 0; c < cols; c++) {
-                        if (boxes[r][c].claimedBy === 1) player1Score++;
-                        if (boxes[r][c].claimedBy === 2) player2Score++;
+                        if (boxes[r][c].claimedBy === 1) playerScore++;
+                        if (boxes[r][c].claimedBy === 2) aiScore++;
                     }
                 }
                 
-                player1ScoreDisplay.textContent = player1Score;
-                player2ScoreDisplay.textContent = player2Score;
+                playerScoreDisplay.textContent = playerScore;
+                aiScoreDisplay.textContent = aiScore;
             }
             
             // Check if the game has ended
             function checkGameEnd() {
                 const totalBoxes = rows * cols;
-                if (player1Score + player2Score === totalBoxes) {
+                if (playerScore + aiScore === totalBoxes) {
                     gameActive = false;
+                    gameContainer.classList.remove('ai-thinking');
                     
                     let winnerText = '';
-                    if (player1Score > player2Score) {
-                        winnerText = `Player 1 wins! ${player1Score} - ${player2Score}`;
+                    if (playerScore > aiScore) {
+                        winnerText = `You win! ${playerScore} - ${aiScore}`;
                         gameStatusDisplay.className = 'mt-4 p-2 text-center rounded-md bg-blue-100 text-blue-800';
-                    } else if (player2Score > player1Score) {
-                        winnerText = `Player 2 wins! ${player2Score} - ${player1Score}`;
+                    } else if (aiScore > playerScore) {
+                        winnerText = `AI wins! ${playerScore} - ${aiScore}`;
                         gameStatusDisplay.className = 'mt-4 p-2 text-center rounded-md bg-red-100 text-red-800';
                     } else {
-                        winnerText = `It's a tie! ${player1Score} - ${player2Score}`;
+                        winnerText = `It's a tie! ${playerScore} - ${aiScore}`;
                         gameStatusDisplay.className = 'mt-4 p-2 text-center rounded-md bg-gray-100 text-gray-800';
                     }
                     
@@ -451,5 +610,5 @@
             });
         });
     </script>
-<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made with <img src="https://enzostvs-deepsite.hf.space/logo.svg" alt="DeepSite Logo" style="width: 16px; height: 16px; vertical-align: middle;display:inline-block;margin-right:3px;filter:brightness(0) invert(1);"><a href="https://enzostvs-deepsite.hf.space" style="color: #fff;text-decoration: underline;" target="_blank" >DeepSite</a> - 🧬 <a href="https://enzostvs-deepsite.hf.space?remix=AAOMK/dots-and-boxes" style="color: #fff;text-decoration: underline;" target="_blank" >Remix</a></p></body>
+</body>
 </html>
