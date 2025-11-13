@@ -63,7 +63,3 @@ A complete web application featuring:
 - Monte Carlo Tree Search (MCTS) implementation
 - Greedy box completion check
 - Configurable simulation limits
-
-**"The best way to predict the future is to invent it."** - Alan Kay
-
-This project represents a journey through decades of AI research, from minimax to MCTS to deep reinforcement learning, all applied to the humble game of Dots and Boxes.
