@@ -4,9 +4,6 @@
 - [Overview](#overview)
 - [Game Description](#game-description)
 - [Project Components](#project-components)
-- [Theoretical Background](#theoretical-background)
-- [Implementation Details](#implementation-details)
-- [References](#references)
 
 ---
 
