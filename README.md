@@ -44,6 +44,34 @@ The game is deceptively complex: while children can play it, optimal play requir
 
 This Google Colab notebook contains the foundational implementation and experimentation framework:
 
+Representation 1 uses arrays to represent the edges and completed boxes: 
+**edges**: Array of all edges in format (i, j, k) where (i, j, 0) is a line from dot (i, j) to dot (i, j+1) and (i, j, 1) is a line from (i, j) to (i+1, j)
+**boxes**: Array of completed boxes in coordinates in form (i, j) 
+
+There are two functions, one that initializes these arrays and the other that is called to set an edge and check if a box has been completed and it updates the arrays accordingly. 
+The problems we had with this representation is that it wasn't intuitively clear what happened visually when you set down an edge and it would be hard to implement the 5 layers of representation in this so we moved to representation 2. 
+
+Representation 2 is based on the representation used in the original paper where there is a tensor nxn elements to represent each box and each element has 5 channels to reprensent whether it's 4 sides have been filled as well as ownership. The other four layers that make up the game state are also implemented in this and are initialized in the class init function. 
+To make an edge the user enters the box coordinates that they want to draw on (r, c) as well as what edge they want to draw (top, bottom, right or left). 
+
+The function init instantiates 4 variables:
+**board_tensor**: shape (n, n, 5) with 4 edges per box and an extra channel for player ownership
+                  channels are in [top, bottom, left, right, player owner]
+**boxes_playerA**: list of boxes owned by player A in (x,y)
+**boxes_playerB**: list of boxes owned by player B
+**recent_edge**: most recent edge drawn
+**On_Offensive**: boolean variable representing whether a player has just completed a box and is going again 
+
+The function **set_edge** is called to make a new edge and updates the board_tensor the box the edge is drawn in and automatically updates that edge for any neighbouring boxes that share it. It also updates *recent_edge* 
+
+The function **check_box** checks whether an edge completes any boxes and returns the number of boxes completed. It also updates *boxes_playerA* or *boxes_playerB* as well as *On_Offensive* 
+
+The function **print_board_ascii** prints the current board with all drawn edges and displays the coordinates of each box unless it is owned in which case it displays the player that owns it. It also displays what player's turn it is and what move in the game it is.  
+
+The function **player_turn** takes in the inputs (r, c, edge_type, player, move) and calls the three previous functions above. 
+
+The function **gameplay** uses the class definition to instantiate an actual game where users take turn adding edges to the game. It displays the winnner after all boxes have been filled. 
+
 ---
 
 ### 2. Web-Based Implementation
