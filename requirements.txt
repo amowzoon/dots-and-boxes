@@ -1,2 +1,5 @@
 flask==3.0.0
 flask-cors==4.0.0
+numpy==1.24.3
+nbformat==5.9.2
+ipython==8.12.0
