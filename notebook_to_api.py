@@ -21,7 +21,7 @@ def load_config():
     """Load API configuration from file or environment"""
     config = {
         'api_key': os.environ.get('API_KEY'),
-        'notebook_path': os.environ.get('NOTEBOOK_PATH', 'dots_and_boxes.ipynb'),
+        'notebook_path': os.environ.get('NOTEBOOK_PATH', 'Dots_and_Boxes_Model.ipynb'), 
         'port': int(os.environ.get('PORT', 5000)),
         'host': os.environ.get('HOST', '0.0.0.0')
     }
@@ -127,7 +127,7 @@ def get_game_class():
         return None
     
     # Try to find the game class (could be named differently in your notebook)
-    possible_names = ['DotsAndBoxesGame', 'DotsAndBoxes', 'Game', 'GameState']
+    possible_names = ['dots_and_boxes', 'DotsAndBoxesGame', 'DotsAndBoxes', 'Game', 'GameState']
     
     for name in possible_names:
         if name in ns:
@@ -387,13 +387,13 @@ def get_state(game_id):
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("🎮 Dots and Boxes - Dynamic Notebook API Server")
+    print("Dots and Boxes - Dynamic Notebook API Server")
     print("=" * 60)
     
     # Check if notebook exists
-    notebook_path = CONFIG.get('notebook_path', 'dots_and_boxes.ipynb')
+    notebook_path = CONFIG.get('notebook_path', 'Dots_and_Boxes_Model.ipynb')
     if not os.path.exists(notebook_path):
-        print(f"\n⚠️  WARNING: Notebook not found at: {notebook_path}")
+        print(f"\nWARNING: Notebook not found at: {notebook_path}")
         print("Please update the 'notebook_path' in api_config.json")
         print("Available .ipynb files:")
         for f in os.listdir('.'):
@@ -404,14 +404,14 @@ if __name__ == '__main__':
     # Try to load notebook
     ns = get_notebook_namespace()
     if ns:
-        print("✅ Notebook loaded successfully!")
+        print("Notebook loaded successfully!")
         game_class = get_game_class()
         if game_class:
-            print(f"✅ Game class found: {game_class.__name__}")
+            print(f"Game class found: {game_class.__name__}")
         else:
-            print("⚠️  Warning: Game class not found")
+            print("Warning: Game class not found")
     else:
-        print("❌ Failed to load notebook")
+        print("Failed to load notebook")
     
     print()
     print(f"Server starting on {CONFIG.get('host')}:{CONFIG.get('port')}")
