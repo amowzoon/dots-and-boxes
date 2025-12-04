@@ -263,7 +263,9 @@ def make_move():
     try:
         # Call player_turn or equivalent method
         if hasattr(game, 'player_turn'):
-            result = game.player_turn(row, col, edge)
+            player = getattr(game, 'current_player', 1)
+            move = getattr(game, 'move_count', 0) + 1
+            result = game.player_turn(row, col, edge, player, move)
         else:
             # Fallback: call methods separately
             game.set_edge(row, col, edge)
@@ -331,7 +333,9 @@ def ai_move():
         
         # Execute the move
         if hasattr(game, 'player_turn'):
-            result = game.player_turn(r, c, edge)
+            player = getattr(game, 'current_player', -1)
+            move = getattr(game, 'move_count', 0) + 1
+            result = game.player_turn(r, c, edge, player, move)
         else:
             game.set_edge(r, c, edge)
             boxes_completed = game.check_box(r, c)
