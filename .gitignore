@@ -1,5 +1,4 @@
 # API Configuration (contains secret key)
-api_config.json
 
 # Python
 __pycache__/
