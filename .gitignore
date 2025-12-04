@@ -46,4 +46,8 @@ Thumbs.db
 
 # Test files
 *_test.py
+<<<<<<< HEAD
 test_*.py
+=======
+test_*.py
+>>>>>>> bc54b5cf8356e04d0cd5fb4829a29408257209bc
