@@ -87,6 +87,20 @@
             transform: none;
         }
 
+        .model-status {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .model-status.trained {
+            color: #28a745;
+        }
+
+        .model-status.untrained {
+            color: #ffc107;
+        }
+
         .scoreboard {
             display: flex;
             justify-content: space-around;
@@ -102,11 +116,11 @@
 
         .score-label {
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
         }
 
         .score-value {
-            font-size: 2em;
+            font-size: 2.5em;
             font-weight: bold;
         }
 
@@ -120,48 +134,51 @@
 
         .current-turn {
             text-align: center;
+            padding: 15px;
+            background: #667eea;
+            color: white;
+            border-radius: 10px;
             font-size: 1.2em;
             font-weight: bold;
-            margin: 15px 0;
-            padding: 10px;
-            background: #fff3cd;
-            border-radius: 8px;
-        }
-
-        .game-board {
-            display: inline-block;
-            margin: 20px auto;
-            padding: 20px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
 
         .board-container {
             display: flex;
             justify-content: center;
+            align-items: flex-start;
+            min-height: 400px;
+            margin-top: 20px;
+        }
+
+        .game-board {
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            position: relative;
         }
 
         .grid {
-            display: grid;
+            display: inline-grid;
             gap: 0;
-        }
-
-        .cell {
             position: relative;
-            width: 60px;
-            height: 60px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
         }
 
         .dot {
-            position: absolute;
             width: 12px;
             height: 12px;
-            background: #333;
+            background: #667eea;
             border-radius: 50%;
-            top: -6px;
-            left: -6px;
-            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .box {
+            position: relative;
+            background: transparent;
+            border: none;
         }
 
         .edge {
@@ -169,51 +186,51 @@
             background: #ddd;
             cursor: pointer;
             transition: all 0.2s;
+            z-index: 10;
         }
 
-        .edge:hover:not(.filled) {
-            background: #667eea;
+        .edge:hover {
+            background: rgba(102, 126, 234, 0.5);
             transform: scale(1.05);
         }
 
-        .edge.filled {
-            cursor: default;
+        .edge.drawn {
+            background: #667eea;
+            cursor: not-allowed;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.4);
         }
 
-        .edge.player-a-edge {
-            background: #3498db;
-        }
-
-        .edge.player-b-edge {
-            background: #e74c3c;
+        .edge.drawn:hover {
+            background: #667eea;
+            transform: none;
         }
 
         .edge.top, .edge.bottom {
-            height: 4px;
-            width: 60px;
+            height: 8px;
+            width: 100%;
             left: 0;
         }
 
         .edge.top {
-            top: -2px;
+            top: -4px;
         }
 
         .edge.bottom {
-            bottom: -2px;
+            bottom: -4px;
         }
 
         .edge.left, .edge.right {
-            width: 4px;
-            height: 60px;
+            width: 8px;
+            height: 100%;
             top: 0;
         }
 
         .edge.left {
-            left: -2px;
+            left: -4px;
         }
 
         .edge.right {
-            right: -2px;
+            right: -4px;
         }
 
         .box-fill {
@@ -225,8 +242,8 @@
             justify-content: center;
             font-size: 2em;
             font-weight: bold;
-            border-radius: 5px;
             animation: fillBox 0.3s ease-out;
+            z-index: 5;
         }
 
         @keyframes fillBox {
@@ -236,17 +253,17 @@
             }
             to {
                 transform: scale(1);
-                opacity: 0.7;
+                opacity: 0.8;
             }
         }
 
         .box-fill.player-a {
-            background: rgba(52, 152, 219, 0.3);
+            background: rgba(52, 152, 219, 0.4);
             color: #3498db;
         }
 
         .box-fill.player-b {
-            background: rgba(231, 76, 60, 0.3);
+            background: rgba(231, 76, 60, 0.4);
             color: #e74c3c;
         }
 
@@ -287,6 +304,11 @@
             margin: 10px 0;
             border-radius: 8px;
             font-weight: bold;
+            min-height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s ease;
         }
 
         .message.success {
@@ -299,38 +321,41 @@
             color: #0c5460;
         }
 
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 20px;
-            font-style: italic;
-            color: #666;
+        .message.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        #messageArea {
+            min-height: 45px;
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎮 Dots and Boxes</h1>
+        <h1>Dots and Boxes</h1>
         
         <div class="game-setup">
             <div class="setup-group">
                 <label for="gridSize">Grid Size:</label>
                 <select id="gridSize">
-                    <option value="2">2x2</option>
-                    <option value="3" selected>3x3</option>
+                    <option value="2" selected>2x2</option>
+                    <option value="3">3x3</option>
                     <option value="4">4x4</option>
                     <option value="5">5x5</option>
                     <option value="6">6x6</option>
                 </select>
+                <small id="modelStatus" class="model-status"></small>
             </div>
             
             <div class="setup-group">
-                <label for="difficulty">AI Difficulty:</label>
-                <select id="difficulty">
-                    <option value="easy">Easy</option>
-                    <option value="medium" selected>Medium</option>
-                    <option value="hard">Hard</option>
-                </select>
+                <!-- Using trained model - no difficulty needed -->
             </div>
             
             <button id="newGameBtn">New Game</button>
@@ -352,7 +377,6 @@
         </div>
 
         <div id="messageArea"></div>
-        <div class="loading" id="loading">AI is thinking...</div>
 
         <div class="board-container">
             <div class="game-board">
@@ -371,7 +395,7 @@
 
     <script>
         // API Key
-        const API_KEY = 'YOUR_API_KEY_HERE';  // PASTE YOUR API KEY HERE
+        const API_KEY = `nv3riGf1FlYrutE7o6-H9U5VoQ8hk7nWPPXFfTu4Xq4`;
         const API_URL = window.location.origin;
         
         // game state
@@ -380,22 +404,24 @@
         let gridSize = 3;
         let difficulty = 'medium';
         let waitingForAI = false;
+        let availableBoardSizes = [];
+        let modelInfoCache = {};
 
         // API helper functions
         async function apiCall(endpoint, method = 'GET', body = null) {
-            const options = {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-API-Key': API_KEY  // API key authentication
-                }
-            };
-            
-            if (body) {
-                options.body = JSON.stringify(body);
-            }
-            
             try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': API_KEY
+                    }
+                };
+                
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+                
                 const response = await fetch(`${API_URL}${endpoint}`, options);
                 
                 if (!response.ok) {
@@ -406,240 +432,288 @@
                 return await response.json();
             } catch (error) {
                 console.error('API Error:', error);
+                showMessage(error.message, 'error');
                 throw error;
             }
         }
 
-        // Initialize game on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('newGameBtn').addEventListener('click', startNewGame);
-            
-            // Check if API key is configured
-            if (API_KEY === 'YOUR_API_KEY_HERE') {
-                showMessage('⚠️ Please configure your API key in the HTML file!', 'error');
-            } else {
-                startNewGame();
-            }
-        });
-
-        async function startNewGame() {
-            gridSize = parseInt(document.getElementById('gridSize').value);
-            difficulty = document.getElementById('difficulty').value;
-            
+        // Check health and get available models
+        async function checkHealth() {
             try {
-                const data = await apiCall('/api/new_game', 'POST', { 
-                    grid_size: gridSize 
-                });
-                
-                gameId = data.game_id;
-                currentState = data.state;
-                
-                renderBoard();
-                updateUI();
-                hideGameOverModal();
-                showMessage('New game started! Your turn.', 'success');
+                const health = await apiCall('/api/health');
+                availableBoardSizes = health.available_board_sizes || [];
+                modelInfoCache = health.model_info || {};
+                updateModelStatus();
+                return health;
             } catch (error) {
-                console.error('Error starting new game:', error);
-                showMessage('Error starting game: ' + error.message, 'error');
+                console.error('Health check failed:', error);
             }
         }
 
+        // Update model status display
+        function updateModelStatus() {
+            const statusEl = document.getElementById('modelStatus');
+            const selectedSize = parseInt(document.getElementById('gridSize').value);
+            
+            if (availableBoardSizes.includes(selectedSize)) {
+                statusEl.textContent = 'Trained AI available';
+                statusEl.className = 'model-status trained';
+            } else {
+                statusEl.textContent = 'Random AI (no trained model)';
+                statusEl.className = 'model-status untrained';
+            }
+        }
+
+        // Start new game
+        async function startNewGame() {
+            try {
+                gridSize = parseInt(document.getElementById('gridSize').value);
+                waitingForAI = false;
+                
+                const response = await apiCall('/api/new_game', 'POST', {
+                    grid_size: gridSize,
+                    starting_player: 2  // AI starts (player 2)
+                });
+                
+                gameId = response.game_id;
+                currentState = response.state;
+                
+                console.log('New game started, current_player:', currentState.current_player);
+                
+                // Show model info
+                if (response.model_loaded) {
+                    showMessage(`Playing vs Trained AI (${gridSize}x${gridSize})`, 'success');
+                } else {
+                    showMessage(`Playing vs Random AI (no trained model for ${gridSize}x${gridSize})`, 'warning');
+                }
+                
+                renderBoard();
+                updateScore();
+                updateTurnIndicator();
+                document.getElementById('gameOverModal').style.display = 'none';
+                
+                // Start with AI move if it's AI's turn
+                if (currentState.current_player === 2) {
+                    setTimeout(requestAIMove, 500);
+                }
+            } catch (error) {
+                console.error('Error starting new game:', error);
+            }
+        }
+
+        // Make player move
+        async function makeMove(row, col, edge) {
+            if (waitingForAI || !gameId || currentState.game_over) return;
+            
+            try {
+                const response = await apiCall('/api/make_move', 'POST', {
+                    game_id: gameId,
+                    row: row,
+                    col: col,
+                    edge: edge
+                });
+                
+                currentState = response.state;
+                renderBoard();
+                updateScore();
+                
+                if (response.result.boxes_completed > 0) {
+                    showMessage(`You completed ${response.result.boxes_completed} box(es)!`, 'success');
+                }
+                
+                if (currentState.game_over) {
+                    showGameOver();
+                } else if (currentState.current_player === 2) {
+                    setTimeout(requestAIMove, 500);
+                } else {
+                    updateTurnIndicator();
+                }
+            } catch (error) {
+                console.error('Error making move:', error);
+            }
+        }
+
+        // Request AI move
+        async function requestAIMove() {
+            if (currentState.game_over) return;
+            
+            console.log('requestAIMove called, current_player:', currentState.current_player);
+            
+            // Only make AI move if it's actually AI's turn (player 2)
+            if (currentState.current_player !== 2) {
+                console.log('Not AI turn, skipping');
+                updateTurnIndicator();
+                return;
+            }
+            
+            waitingForAI = true;
+            updateTurnIndicator();
+            
+            try {
+                const response = await apiCall('/api/ai_move', 'POST', {
+                    game_id: gameId
+                });
+                
+                console.log('AI move response, new current_player:', response.state.current_player);
+                
+                currentState = response.state;
+                renderBoard();
+                updateScore();
+                
+                if (response.result.boxes_completed > 0) {
+                    showMessage(`AI completed ${response.result.boxes_completed} box(es)!`, 'info');
+                }
+                
+                waitingForAI = false;
+                updateTurnIndicator();
+                
+                if (currentState.game_over) {
+                    showGameOver();
+                } else if (currentState.current_player === 2) {
+                    // AI gets another turn
+                    console.log('AI gets another turn');
+                    setTimeout(requestAIMove, 500);
+                }
+                // If current_player === 1, it's the player's turn, so we stop
+            } catch (error) {
+                console.error('Error getting AI move:', error);
+                waitingForAI = false;
+                updateTurnIndicator();
+            }
+        }
+
+        // Render game board
         function renderBoard() {
             const board = document.getElementById('gameBoard');
             board.innerHTML = '';
-            board.style.gridTemplateColumns = `repeat(${gridSize}, 60px)`;
-            board.style.gridTemplateRows = `repeat(${gridSize}, 60px)`;
-
-            for (let r = 0; r < gridSize; r++) {
-                for (let c = 0; c < gridSize; c++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'cell';
-                    cell.dataset.row = r;
-                    cell.dataset.col = c;
-
-                    // Add dot
-                    const dot = document.createElement('div');
-                    dot.className = 'dot';
-                    cell.appendChild(dot);
-
+            
+            const n = currentState.grid_size;
+            const boxSize = 70; // Fixed size for consistency
+            
+            board.style.gridTemplateColumns = `repeat(${n}, ${boxSize}px)`;
+            board.style.gridTemplateRows = `repeat(${n}, ${boxSize}px)`;
+            board.style.gap = '0';
+            
+            for (let r = 0; r < n; r++) {
+                for (let c = 0; c < n; c++) {
+                    const boxDiv = document.createElement('div');
+                    boxDiv.className = 'box';
+                    boxDiv.style.width = `${boxSize}px`;
+                    boxDiv.style.height = `${boxSize}px`;
+                    
                     // Add edges
                     ['top', 'bottom', 'left', 'right'].forEach(edge => {
                         const edgeDiv = document.createElement('div');
                         edgeDiv.className = `edge ${edge}`;
-                        edgeDiv.dataset.row = r;
-                        edgeDiv.dataset.col = c;
-                        edgeDiv.dataset.edge = edge;
-                        edgeDiv.addEventListener('click', () => handleEdgeClick(r, c, edge));
-                        cell.appendChild(edgeDiv);
+                        
+                        const edgeIndex = {'top': 0, 'bottom': 1, 'left': 2, 'right': 3}[edge];
+                        const isDrawn = currentState.board[r][c][edgeIndex] === 1;
+                        
+                        if (isDrawn) {
+                            edgeDiv.classList.add('drawn');
+                        } else {
+                            edgeDiv.onclick = () => makeMove(r, c, edge);
+                        }
+                        
+                        boxDiv.appendChild(edgeDiv);
                     });
-
-                    board.appendChild(cell);
-                }
-            }
-
-            updateBoardState();
-        }
-
-        function updateBoardState() {
-            if (!currentState) return;
-
-            const board = currentState.board;
-
-            for (let r = 0; r < gridSize; r++) {
-                for (let c = 0; c < gridSize; c++) {
-                    const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
                     
-                    // Update edges
-                    ['top', 'bottom', 'left', 'right'].forEach((edgeName, idx) => {
-                        const edge = cell.querySelector(`.edge.${edgeName}`);
-                        if (board[r][c][idx] === 1) {
-                            edge.classList.add('filled');
-                            // Color based on who made the move (simplified - all same for now)
-                            edge.classList.add('player-a-edge');
-                        }
-                    });
-
-                    // Update box ownership
-                    const owner = board[r][c][4];
-                    if (owner !== 0) {
-                        let boxFill = cell.querySelector('.box-fill');
-                        if (!boxFill) {
-                            boxFill = document.createElement('div');
-                            boxFill.className = `box-fill ${owner === 1 ? 'player-a' : 'player-b'}`;
-                            boxFill.textContent = owner === 1 ? '★' : '●';
-                            cell.appendChild(boxFill);
-                        }
+                    // Add box fill if owned
+                    const owner = currentState.board[r][c][4];
+                    if (owner === 1) {
+                        const fill = document.createElement('div');
+                        fill.className = 'box-fill player-a';
+                        fill.textContent = 'A';
+                        boxDiv.appendChild(fill);
+                    } else if (owner === 2) {
+                        const fill = document.createElement('div');
+                        fill.className = 'box-fill player-b';
+                        fill.textContent = 'B';
+                        boxDiv.appendChild(fill);
                     }
+                    
+                    board.appendChild(boxDiv);
                 }
             }
         }
 
-        async function handleEdgeClick(row, col, edge) {
-            if (waitingForAI || !gameId || currentState.game_over) {
-                return;
-            }
-
-            if (currentState.current_player !== 1) {
-                showMessage('Wait for AI turn!', 'info');
-                return;
-            }
-
-            try {
-                const data = await apiCall('/api/make_move', 'POST', { 
-                    game_id: gameId, 
-                    row: row, 
-                    col: col, 
-                    edge: edge 
-                });
-                
-                if (!data.result.valid) {
-                    showMessage(data.result.message || 'Invalid move!', 'error');
-                    return;
-                }
-
-                currentState = data.state;
-                updateBoardState();
-                updateUI();
-
-                if (data.result.boxes_completed > 0) {
-                    showMessage(`You completed ${data.result.boxes_completed} box(es)! Go again!`, 'success');
-                }
-
-                if (currentState.game_over) {
-                    showGameOver();
-                } else if (currentState.current_player === -1) {
-                    // AI's turn
-                    setTimeout(makeAIMove, 500);
-                }
-            } catch (error) {
-                console.error('Error making move:', error);
-                showMessage('Error making move: ' + error.message, 'error');
-            }
-        }
-
-        async function makeAIMove() {
-            if (waitingForAI || currentState.game_over) return;
-
-            waitingForAI = true;
-            document.getElementById('loading').style.display = 'block';
-
-            try {
-                const data = await apiCall('/api/ai_move', 'POST', { 
-                    game_id: gameId, 
-                    difficulty: difficulty 
-                });
-                
-                currentState = data.state;
-                
-                updateBoardState();
-                updateUI();
-
-                if (data.result.boxes_completed > 0) {
-                    showMessage(`AI completed ${data.result.boxes_completed} box(es)!`, 'info');
-                }
-
-                if (currentState.game_over) {
-                    showGameOver();
-                } else if (currentState.current_player === -1 && currentState.on_offensive) {
-                    // AI gets another turn
-                    setTimeout(makeAIMove, 500);
-                }
-            } catch (error) {
-                console.error('Error making AI move:', error);
-                showMessage('Error with AI move: ' + error.message, 'error');
-            } finally {
-                waitingForAI = false;
-                document.getElementById('loading').style.display = 'none';
-            }
-        }
-
-        function updateUI() {
-            if (!currentState) return;
-
+        // Update score display
+        function updateScore() {
             document.getElementById('scoreA').textContent = currentState.score_A;
             document.getElementById('scoreB').textContent = currentState.score_B;
+        }
 
-            const turnIndicator = document.getElementById('turnIndicator');
-            if (currentState.game_over) {
-                turnIndicator.textContent = 'Game Over!';
+        // Update turn indicator
+        function updateTurnIndicator() {
+            const indicator = document.getElementById('turnIndicator');
+            
+            if (waitingForAI) {
+                indicator.textContent = 'AI is thinking...';
+                indicator.style.background = '#ffc107';
             } else if (currentState.current_player === 1) {
-                turnIndicator.textContent = 'Your Turn!';
+                indicator.textContent = 'Your Turn!';
+                indicator.style.background = '#667eea';
             } else {
-                turnIndicator.textContent = 'AI\'s Turn...';
+                indicator.textContent = 'AI\'s Turn';
+                indicator.style.background = '#e74c3c';
             }
         }
 
+        // Show game over modal
         function showGameOver() {
             const modal = document.getElementById('gameOverModal');
             const winnerText = document.getElementById('winnerText');
             const finalScore = document.getElementById('finalScore');
-
-            const scoreA = currentState.score_A;
-            const scoreB = currentState.score_B;
-
-            if (scoreA > scoreB) {
+            
+            if (currentState.score_A > currentState.score_B) {
                 winnerText.textContent = 'You Win!';
-            } else if (scoreB > scoreA) {
+                winnerText.style.color = '#3498db';
+            } else if (currentState.score_B > currentState.score_A) {
                 winnerText.textContent = 'AI Wins!';
+                winnerText.style.color = '#e74c3c';
             } else {
-                winnerText.textContent = 'Draw!';
+                winnerText.textContent = 'It\'s a Tie!';
+                winnerText.style.color = '#667eea';
             }
-
-            finalScore.textContent = `Final Score: You ${scoreA} - ${scoreB} AI`;
+            
+            finalScore.textContent = `Final Score: ${currentState.score_A} - ${currentState.score_B}`;
             modal.style.display = 'flex';
         }
 
-        function hideGameOverModal() {
-            document.getElementById('gameOverModal').style.display = 'none';
-        }
-
-        function showMessage(text, type) {
+        // Show message
+        function showMessage(text, type = 'info') {
             const messageArea = document.getElementById('messageArea');
-            messageArea.innerHTML = `<div class="message ${type}">${text}</div>`;
+            
+            // Clear existing message
+            messageArea.innerHTML = '';
+            
+            // Create new message
+            const message = document.createElement('div');
+            message.className = `message ${type}`;
+            message.textContent = text;
+            messageArea.appendChild(message);
+            
+            // Keep message visible for 3 seconds, then clear but maintain height
             setTimeout(() => {
-                messageArea.innerHTML = '';
+                message.style.opacity = '0';
+                setTimeout(() => {
+                    messageArea.innerHTML = '';
+                }, 300);
             }, 3000);
         }
+
+        // Initialize
+        document.getElementById('newGameBtn').addEventListener('click', startNewGame);
+        document.getElementById('gridSize').addEventListener('change', () => {
+            updateModelStatus();
+            // Automatically start new game when board size changes
+            startNewGame();
+        });
+
+        // Check health and start first game
+        checkHealth().then(() => {
+            startNewGame();
+        });
     </script>
 </body>
 </html>
