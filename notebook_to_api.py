@@ -181,7 +181,7 @@ class GameWrapper:
     def get_ai_move(self):
         """Get AI move using the trained model"""
         if self.mcts_class is None or self.model is None:
-            print("No model available, using random move")
+            print(f"No model available for {self.grid_size}x{self.grid_size}, using random move")
             return self._get_random_move()
         
         try:
@@ -192,7 +192,7 @@ class GameWrapper:
                 num_simulations=self.num_simulations
             )
             
-            # Get move from MCTS (exactly like in your notebook)
+            # Get move from MCTS
             action_probs = mcts.search(self.game, self.current_player)
             action = np.argmax(action_probs)
             r, c, edge_type = mcts.decode_action(action, self.grid_size)
@@ -239,95 +239,183 @@ class GameWrapper:
         }
 
 
-# Game sessions
+# Global model storage - support multiple board sizes
+DEVICE = None
+MODEL_CACHE = {}  # {board_size: model}
+MODEL_INFO_CACHE = {}  # {board_size: info_dict}
 games = {}
 
-# Load model on startup
-TRAINED_MODEL = None
-DEVICE = None
-MODEL_INFO = {
-    'loaded': False,
-    'file': None,
-    'win_rate': None,
-    'training_step': None,
-    'parameters': 0
-}
-
-def load_trained_model():
-    """Load the trained model with detailed diagnostics"""
-    global TRAINED_MODEL, DEVICE, MODEL_INFO
+def load_trained_model_for_size(board_size):
+    """
+    Load a trained model for a specific board size.
+    Supports multiple naming conventions:
+    - best_model_NxN.pth (e.g., best_model_2x2.pth, best_model_3x3.pth)
+    - best_model.pth (default, tries to detect size)
+    - model_NxN.pth
+    - model.pth
+    """
+    global DEVICE, MODEL_CACHE, MODEL_INFO_CACHE
+    
+    # Check cache first
+    if board_size in MODEL_CACHE:
+        return MODEL_CACHE[board_size], MODEL_INFO_CACHE[board_size]
     
     try:
         import torch
-        DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Using device: {DEVICE}")
+        if DEVICE is None:
+            DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            print(f"Using device: {DEVICE}")
         
+        # Get model class from notebook
         Connect2Model = get_class_from_notebook('Connect2Model')
         if not Connect2Model:
-            print("Connect2Model class not found in notebook")
-            return None
+            print("ERROR: Connect2Model class not found in notebook")
+            return None, None
         
-        # Try to load saved model
-        model_files = ['best_model.pth', 'model.pth', 'checkpoint.pth']
+        # Try different file naming patterns
+        model_files = [
+            f'best_model_{board_size}x{board_size}.pth',
+            f'model_{board_size}x{board_size}.pth',
+            'best_model.pth',
+            'model.pth'
+        ]
+        
         for model_file in model_files:
-            if os.path.exists(model_file):
-                print(f"Found model file: {model_file} ({os.path.getsize(model_file)} bytes)")
-                
+            if not os.path.exists(model_file):
+                continue
+            
+            print(f"\nAttempting to load: {model_file} for {board_size}x{board_size} board")
+            print(f"File size: {os.path.getsize(model_file):,} bytes")
+            
+            try:
                 checkpoint = torch.load(model_file, map_location=DEVICE)
                 
-                # Extract model info
-                MODEL_INFO['file'] = model_file
+                # Extract state dict
                 if isinstance(checkpoint, dict):
-                    print(f"Checkpoint type: dictionary")
                     if 'model_state_dict' in checkpoint:
                         state_dict = checkpoint['model_state_dict']
-                        print(f"Found model_state_dict")
                     else:
                         state_dict = checkpoint
-                        print(f"Using checkpoint as state_dict directly")
                     
-                    if 'win_rate' in checkpoint:
-                        MODEL_INFO['win_rate'] = checkpoint['win_rate']
-                        print(f"Model win rate: {checkpoint['win_rate']:.2%}")
-                    if 'training_step' in checkpoint:
-                        MODEL_INFO['training_step'] = checkpoint['training_step']
-                        print(f"Training step: {checkpoint['training_step']}")
+                    metadata = checkpoint if isinstance(checkpoint, dict) else {}
                 else:
                     state_dict = checkpoint
+                    metadata = {}
                 
-                # Count parameters
-                MODEL_INFO['parameters'] = sum(p.numel() for p in state_dict.values())
-                print(f"Total parameters: {MODEL_INFO['parameters']:,}")
+                # Detect board size from model architecture
+                detected_size = None
+                if 'policy_fc.weight' in state_dict:
+                    policy_out_features = state_dict['policy_fc.weight'].shape[0]
+                    from math import sqrt
+                    n = int((-2 + sqrt(4 + 8 * policy_out_features)) / 4)
+                    if 2 * n * (n + 1) == policy_out_features:
+                        detected_size = n
                 
-                # Initialize model
-                model = Connect2Model(board_size=(2, 2), device=DEVICE)
+                # If this model doesn't match requested size, skip
+                if detected_size and detected_size != board_size:
+                    print(f"  Skipping: detected size {detected_size}x{detected_size}, need {board_size}x{board_size}")
+                    continue
+                
+                # Check if model appears trained (not just random initialization)
+                param_values = []
+                for key, param in state_dict.items():
+                    if 'weight' in key:
+                        param_values.extend(param.flatten().cpu().numpy()[:100].tolist())
+                
+                if len(param_values) > 0:
+                    mean_abs = np.mean(np.abs(param_values))
+                    std = np.std(param_values)
+                    if mean_abs < 0.001 or std < 0.001:
+                        print(f"  Skipping: appears to be untrained (near-zero weights)")
+                        continue
+                
+                # Initialize model with correct size
+                print(f"  Creating model for {board_size}x{board_size}")
+                model = Connect2Model(board_size=(board_size, board_size), device=DEVICE)
+                
+                # Load state dict
                 model.load_state_dict(state_dict)
                 model.eval()
                 
                 # Test forward pass
                 with torch.no_grad():
-                    test_input = torch.zeros(1, 6, 2, 2).to(DEVICE)
+                    test_input = torch.zeros(1, 6, board_size, board_size).to(DEVICE)
                     policy, value = model(test_input)
-                    print(f"Forward pass successful: policy {policy.shape}, value {value.shape}")
+                    expected_actions = 2 * board_size * (board_size + 1)
+                    
+                    if policy.shape[1] != expected_actions:
+                        print(f"  Skipping: policy shape mismatch")
+                        continue
                 
-                TRAINED_MODEL = model
-                MODEL_INFO['loaded'] = True
-                print(f"Model loaded and verified from {model_file}")
-                return model
+                # Build model info
+                model_info = {
+                    'loaded': True,
+                    'file': model_file,
+                    'board_size': board_size,
+                    'parameters': sum(p.numel() for p in state_dict.values()),
+                    'win_rate': metadata.get('win_rate'),
+                    'training_step': metadata.get('training_step')
+                }
+                
+                # Cache and return
+                MODEL_CACHE[board_size] = model
+                MODEL_INFO_CACHE[board_size] = model_info
+                
+                print(f"  SUCCESS: Loaded {model_file} for {board_size}x{board_size}")
+                print(f"  Parameters: {model_info['parameters']:,}")
+                if model_info['win_rate']:
+                    print(f"  Win rate: {model_info['win_rate']:.2%}")
+                
+                return model, model_info
+                
+            except Exception as e:
+                print(f"  Error loading {model_file}: {e}")
+                continue
         
-        print("No model file found")
-        print("To use a trained model:")
-        print("   1. Train in your notebook: trainer.train(max_training_cycles=500)")
-        print("   2. Download 'best_model.pth' from Colab")
-        print("   3. Place it in this directory")
-        print("   4. Restart the server")
-        return None
+        # No model found for this size
+        print(f"No trained model found for {board_size}x{board_size} board")
+        return None, None
         
     except Exception as e:
-        print(f"Error loading model: {e}")
+        print(f"Error in load_trained_model_for_size: {e}")
         import traceback
         traceback.print_exc()
-        return None
+        return None, None
+
+
+def get_available_board_sizes():
+    """Get list of board sizes that have trained models available"""
+    sizes = []
+    
+    # Check for size-specific models
+    for size in [2, 3, 4, 5]:
+        for pattern in [f'best_model_{size}x{size}.pth', f'model_{size}x{size}.pth']:
+            if os.path.exists(pattern):
+                sizes.append(size)
+                break
+    
+    # Check default models
+    for default_file in ['best_model.pth', 'model.pth']:
+        if os.path.exists(default_file):
+            # Try to detect size
+            try:
+                import torch
+                checkpoint = torch.load(default_file, map_location='cpu')
+                if isinstance(checkpoint, dict):
+                    state_dict = checkpoint.get('model_state_dict', checkpoint)
+                else:
+                    state_dict = checkpoint
+                
+                if 'policy_fc.weight' in state_dict:
+                    policy_out = state_dict['policy_fc.weight'].shape[0]
+                    from math import sqrt
+                    n = int((-2 + sqrt(4 + 8 * policy_out)) / 4)
+                    if 2 * n * (n + 1) == policy_out and n not in sizes:
+                        sizes.append(n)
+            except:
+                pass
+    
+    return sorted(sizes) if sizes else []
 
 
 # Routes
@@ -337,11 +425,13 @@ def index():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
+    available_sizes = get_available_board_sizes()
     return jsonify({
         'status': 'ok',
-        'model_loaded': TRAINED_MODEL is not None,
         'notebook_loaded': NOTEBOOK_NAMESPACE is not None,
-        'model_info': MODEL_INFO
+        'available_board_sizes': available_sizes,
+        'cached_models': list(MODEL_CACHE.keys()),
+        'model_info': MODEL_INFO_CACHE
     })
 
 @app.route('/api/new_game', methods=['POST'])
@@ -353,10 +443,14 @@ def new_game():
     
     data = request.json or {}
     grid_size = data.get('grid_size', 2)
-    num_simulations = data.get('num_simulations', 100)  # Increased default
+    num_simulations = data.get('num_simulations', 100)
+    starting_player = data.get('starting_player', 2)  # Default to AI starting (player 2)
     game_id = str(random.randint(100000, 999999))
     
     try:
+        # Load model for this board size (or None if not available)
+        model, model_info = load_trained_model_for_size(grid_size)
+        
         raw_game = GameClass(n=grid_size)
         MCTSClass = get_class_from_notebook('MCTS')
         
@@ -364,18 +458,24 @@ def new_game():
             raw_game, 
             grid_size,
             mcts=MCTSClass,
-            model=TRAINED_MODEL,
+            model=model,
             device=DEVICE,
             num_simulations=num_simulations
         )
+        
+        # Set starting player
+        game.current_player = starting_player
+        
         games[game_id] = game
         
-        print(f"New game created: {game_id} (grid={grid_size}, sims={num_simulations}, model={'YES' if TRAINED_MODEL else 'NO'})")
+        model_status = "YES" if model else "NO (random moves)"
+        print(f"New game created: {game_id} (grid={grid_size}, sims={num_simulations}, model={model_status}, starting_player={starting_player})")
         
         return jsonify({
             'game_id': game_id,
             'state': game.get_state(),
-            'model_loaded': TRAINED_MODEL is not None,
+            'model_loaded': model is not None,
+            'model_info': model_info,
             'num_simulations': num_simulations
         })
         
@@ -457,7 +557,7 @@ def get_state(game_id):
 
 if __name__ == '__main__':
     print("=" * 80)
-    print("DOTS AND BOXES - Enhanced Server with Diagnostics")
+    print("DOTS AND BOXES - Multi-Board Size Server")
     print("=" * 80)
     
     # Load notebook
@@ -471,28 +571,26 @@ if __name__ == '__main__':
         if get_class_from_notebook('MCTS'):
             print("MCTS class found")
         
-        # Load model
+        # Check available models
         print("\n" + "=" * 80)
-        print(" Loading AI Model")
+        print(" Checking Available Models")
         print("=" * 80)
-        model = load_trained_model()
         
-        if model:
-            print("\nUSING TRAINED MODEL")
-            print(f"   • Model file: {MODEL_INFO['file']}")
-            print(f"   • Parameters: {MODEL_INFO['parameters']:,}")
-            if MODEL_INFO['win_rate']:
-                print(f"   • Win rate: {MODEL_INFO['win_rate']:.2%}")
-            if MODEL_INFO['training_step']:
-                print(f"   • Training step: {MODEL_INFO['training_step']}")
-            print(f"   • Default MCTS simulations: 100")
+        available_sizes = get_available_board_sizes()
+        if available_sizes:
+            print(f"\nFound models for board sizes: {available_sizes}")
+            print("\nPre-loading models...")
+            for size in available_sizes:
+                model, info = load_trained_model_for_size(size)
+                if model:
+                    print(f"  {size}x{size}: Loaded successfully")
         else:
-            print("\nNO MODEL LOADED - AI WILL PLAY RANDOMLY")
-            print("\nTo train a model:")
-            print("   1. Open your Colab notebook")
-            print("   2. Run: trainer.train(max_training_cycles=500)")
-            print("   3. Download 'best_model.pth'")
-            print("   4. Place in this directory and restart server")
+            print("\nNo trained models found")
+            print("AI will play randomly for all board sizes")
+            print("\nTo add trained models:")
+            print("   1. Train model: trainer.train(max_training_cycles=500)")
+            print("   2. Save as: best_model_NxN.pth (e.g., best_model_2x2.pth)")
+            print("   3. Place in this directory and restart server")
     else:
         print("Failed to load notebook")
     
