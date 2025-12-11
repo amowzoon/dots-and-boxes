@@ -1,93 +1,254 @@
-# Dots and Boxes Algorithm
+# Dots and Boxes - Deep Reinforcement Learning
+
+A deep reinforcement learning implementation of the classic Dots and Boxes game using AlphaZero-style training with Monte Carlo Tree Search (MCTS) and neural networks.
+
+---
 
 ## Table of Contents
 - [Overview](#overview)
 - [Game Description](#game-description)
-- [Project Components](#project-components)
+- [Our Approach](#our-approach)
+- [Installation & Setup](#installation--setup)
+- [Usage](#usage)
+- [References](#references)
 
 ---
 
 ## Overview
 
-This project explores the classic game **Dots and Boxes** through multiple computational approaches, ranging from traditional game tree search algorithms to modern deep reinforcement learning techniques. The work demonstrates how artificial intelligence can learn to master strategic board games through sufficient training and coding practices.
+This project implements an AI agent that learns to play Dots and Boxes through self-play reinforcement learning. Inspired by DeepMind's AlphaZero, our system combines:
 
-**Dots and Boxes** is a pencil-and-paper game for two players, typically played on a rectangular grid of dots. Despite its simple rules, the game exhibits surprising strategic depth, making it an excellent testbed for game-playing AI algorithms. Not only must players be able to locate and fill in a box, but also players must be able to put themselves in a winning scenario through mapping out their own clusters whilst sacrificing clusters worth less points.
+- **Monte Carlo Tree Search (MCTS)** for strategic planning
+- **Deep Convolutional Neural Networks** for board evaluation and move prediction
+- **Self-play training** for continuous improvement
+- **Web-based interface** for human vs. AI gameplay
+
+The trained models achieve strong performance on 2×2 and 3×3 boards, demonstrating strategic understanding of the game's complexities including chain captures and sacrifice strategies.
 
 ---
 
 ## Game Description
 
 ### Rules
+1. **Setup**: Players start with a rectangular grid of dots
+2. **Gameplay**: Players alternate drawing horizontal or vertical lines between adjacent dots
+3. **Scoring**: When a player completes the fourth side of a 1×1 box, they:
+   - Claim that box and score one point
+   - Immediately take another turn
+4. **Victory**: The player who claims the most boxes when the grid is full wins
 
-1. **Setup**: Players start with a grid of dots
-2. **Gameplay**: Players take turns drawing horizontal or vertical lines between adjacent dots
-3. **Scoring**: When a player completes the fourth side of a box (1×1 square), they:
-   - Claim that box
-   - Score one point
-   - Take another turn immediately
-4. **Victory**: The player with the most boxes when all boxes are claimed wins
+### Strategic Depth
+Despite simple rules, Dots and Boxes exhibits surprising complexity:
+- **Chain Captures**: Completing one box often enables capturing multiple boxes in sequence
+- **Sacrifice Strategy**: Intentionally giving away boxes to minimize opponent's chain length
+- **Parity & Endgame**: Total box count creates critical endgame patterns
+- **Double-Cross**: Advanced technique for controlling long chains
 
-### Strategic Elements
-
-- **Chain Captures**: Completing one box often sets up more boxes to capture
-- **Sacrifice Strategy**: Sometimes giving away boxes minimizes opponent's chain length
-- **Parity**: The total number of boxes and game structure create endgame patterns
-- **Double-Cross Strategy**: Advanced technique for controlling long chains
-
-The game is deceptively complex: while children can play it, optimal play requires deep lookahead and strategic planning similar to games like Go or Chess.
+This complexity makes it an excellent testbed for AI game-playing algorithms.
 
 ---
 
-## Project Components
+## Our Approach
 
-### 1. Jupyter Notebook: `Dots_and_Boxes_Experimentation.ipynb`
+### Board Representation
 
-This Google Colab notebook contains the foundational implementation and experimentation framework:
+We use a tensor-based representation inspired by AlphaZero:
 
-Representation 1 uses arrays to represent the edges and completed boxes: 
-**edges**: Array of all edges in format (i, j, k) where (i, j, 0) is a line from dot (i, j) to dot (i, j+1) and (i, j, 1) is a line from (i, j) to (i+1, j)
-**boxes**: Array of completed boxes in coordinates in form (i, j) 
+**Game State Tensor**: Shape `(n, n, 5)` where:
+- **Channels 0-3**: Binary indicators for each box's edges (top, bottom, left, right)
+- **Channel 4**: Player ownership (0 = unclaimed, 1 = Player A, -1 = Player B)
 
-There are two functions, one that initializes these arrays and the other that is called to set an edge and check if a box has been completed and it updates the arrays accordingly. 
-The problems we had with this representation is that it wasn't intuitively clear what happened visually when you set down an edge and it would be hard to implement the 5 layers of representation in this so we moved to representation 2. 
+**Additional State Tracking**:
+- `boxes_playerA`, `boxes_playerB`: Lists of claimed box coordinates
+- `recent_edge`: Most recently drawn edge
+- `On_Offensive`: Boolean indicating if current player gets another turn
 
-Representation 2 is based on the representation used in the original paper where there is a tensor nxn elements to represent each box and each element has 5 channels to reprensent whether it's 4 sides have been filled as well as ownership. The other four layers that make up the game state are also implemented in this and are initialized in the class init function. 
-To make an edge the user enters the box coordinates that they want to draw on (r, c) as well as what edge they want to draw (top, bottom, right or left). 
+This representation enables:
+- Efficient edge placement with automatic neighbor updates
+- Clear ownership tracking for both players
+- Natural input format for convolutional neural networks
 
-The function init instantiates 4 variables:
-**board_tensor**: shape (n, n, 5) with 4 edges per box and an extra channel for player ownership
-                  channels are in [top, bottom, left, right, player owner]
-**boxes_playerA**: list of boxes owned by player A in (x,y)
-**boxes_playerB**: list of boxes owned by player B
-**recent_edge**: most recent edge drawn
-**On_Offensive**: boolean variable representing whether a player has just completed a box and is going again 
+### Neural Network Architecture
 
-The function **set_edge** is called to make a new edge and updates the board_tensor the box the edge is drawn in and automatically updates that edge for any neighbouring boxes that share it. It also updates *recent_edge* 
+Our model uses a residual CNN architecture with dual outputs:
 
-The function **check_box** checks whether an edge completes any boxes and returns the number of boxes completed. It also updates *boxes_playerA* or *boxes_playerB* as well as *On_Offensive* 
+```
+Input (n×n×5 tensor)
+    ↓
+3×3 Conv + ReLU (initial feature extraction)
+    ↓
+3× Residual Blocks (feature learning)
+    ↓
+    ├─→ Policy Head: 1×1 Conv → Flatten → FC → Action Probabilities
+    └─→ Value Head: 1×1 Conv → Flatten → FC(64) → FC(1) → tanh → Win Probability
+```
 
-The function **print_board_ascii** prints the current board with all drawn edges and displays the coordinates of each box unless it is owned in which case it displays the player that owns it. It also displays what player's turn it is and what move in the game it is.  
+**Model Details**:
+- **Input**: 5-channel board state tensor
+- **Residual Blocks**: 3 blocks with skip connections for gradient flow
+- **Policy Output**: Probability distribution over all possible moves
+- **Value Output**: Estimated win probability ∈ [-1, 1]
+- **Parameters**: ~57,840 (2×2) / ~58,508 (3×3)
 
-The function **player_turn** takes in the inputs (r, c, edge_type, player, move) and calls the three previous functions above. 
+**Loss Function**:
+```
+L_total = L_policy + L_value
+L_policy = -Σ(π_target · log(softmax(p_pred)))
+L_value = (1/N)Σ(v_pred - z_target)²
+```
 
-The function **gameplay** uses the class definition to instantiate an actual game where users take turn adding edges to the game. It displays the winnner after all boxes have been filled. 
+### Monte Carlo Tree Search (MCTS)
+
+MCTS guides exploration during both training and inference through four phases:
+
+1. **Selection**: Traverse tree using Upper Confidence Bound (UCB) to balance exploration/exploitation
+2. **Expansion**: Add new child node for unexplored action
+3. **Simulation**: Use neural network to evaluate position (no random rollouts)
+4. **Backpropagation**: Update visit counts and values up the tree
+
+The neural network provides both move probabilities (to guide selection) and position evaluation (to avoid full simulations).
+
+### Training Pipeline
+
+**Self-Play Data Generation**:
+1. Initialize empty board and MCTS with current model
+2. For each move:
+   - Run MCTS to generate improved policy π
+   - Select action stochastically from π distribution
+   - Record tuple: (board_state, π, current_player)
+3. When game ends, append outcome z to all tuples: (s, π, z, player_id)
+
+**Training Cycle**:
+```
+Loop until convergence:
+    1. Generate 300+ self-play games
+    2. Train neural network for 50 epochs on collected data
+    3. Every 10 cycles: Evaluate against pure MCTS baseline
+    4. If new model wins 100% → Update best model
+```
+
+**Data Augmentation** (planned):
+- Board rotations and reflections to increase effective dataset size
 
 ---
 
-### 2. Web-Based Implementation
+### Key Components
 
-A complete web application featuring:
+#### 1. `Dots_and_Boxes_Model.ipynb`
+- Complete game implementation with tensor-based state representation
+- Neural network definition (ResNet architecture)
+- MCTS implementation with neural network guidance
+- Self-play data generation and training loops
+- Model evaluation against pure MCTS baseline
 
-#### **Frontend: `index.html`**
-- Interactive UI
-- Real-time score tracking
-- Visual feedback via colored lines and boxes distinguishing players from one another
-- User goes against an AI agent
-- Difficulty selection (Easy, Medium, Hard)
+#### 2. `notebook_to_api.py` (Flask API)
+- Loads notebook and skips training cells
+- Loads trained models for different board sizes
+- Bridges notebook code with web interface
+
+#### 3. `index.html` (Web Interface)
+- Interactive game board with click-to-draw mechanics
+- Real-time score tracking for both players
+- Difficulty selection (Easy, Medium, Hard) via MCTS simulation count
 - Grid size customization (2×2 to 10×10)
+- Visual distinction between player and AI moves
 
-#### **Backend: `ai-service.py`**
-- Flask REST API for AI moves
-- Monte Carlo Tree Search (MCTS) implementation
-- Greedy box completion check
-- Configurable simulation limits
+---
+
+## Installation & Setup
+
+### Prerequisites
+- Python 3.8+
+- PyTorch (with CUDA support recommended for training)
+- Flask
+- NumPy
+
+### Installation Steps
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/amowzoon/dots-and-boxes.git
+   cd dots-and-boxes
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   pip install torch torchvision flask numpy jupyter
+   ```
+
+3. **Download or train models**:
+   - Pre-trained models: `best_model_2x2.pth`, `best_model_3x3.pth` should be in root directory
+   - To train from scratch: Open and run `Dots_and_Boxes_Model.ipynb`
+
+---
+
+## Usage
+
+### Training a New Model
+
+1. Open `Dots_and_Boxes_Model.ipynb` in Jupyter/Colab
+2. Configure hyperparameters:
+   ```python
+   BOARD_SIZE = 2  # or 3, 4, etc.
+   NUM_MCTS_SIMS = 50
+   NUM_TRAINING_CYCLES = 50
+   GAMES_PER_CYCLE = 300
+   ```
+3. Run all cells to begin self-play training
+4. Trained model saves as `best_model_{size}x{size}.pth`
+
+**Training Resources Used**:
+- Google Colab T4 GPU
+- BU SCC A40/L40 GPUs (4 cores)
+- Local Ryzen 9 CPU
+
+### Playing Against the AI
+
+1. **Start the Flask server**:
+   ```bash
+   python ai-service.py
+   ```
+   
+   You should see:
+   ```
+   Loading notebook: Dots_and_Boxes_Model.ipynb
+   Notebook loaded successfully
+   Game class found
+   MCTS class found
+   Loaded best_model_2x2.pth for 2x2 board
+   Loaded best_model_3x3.pth for 3x3 board
+   * Running on http://localhost:5000
+   ```
+
+2. **Open the web interface**:
+   ```bash
+   # Open in your browser:
+   http://localhost:5000
+   ```
+
+3. **Configure game settings**:
+   - Select board size (2×2 to 6×6)
+   - Game automatically starts
+   - Can select "New Game" to reset or "Play Again" if game commpleted
+
+4. **Play**:
+   - Click between dots to draw lines
+   - Your moves appear in one color, AI moves in another
+   - Completed boxes show player ownership
+   - Game automatically handles chain captures (bonus turns)
+
+---
+
+## References
+
+1. **Zhang, Y., Li, S., & Xiong, X.** (2019). "A Study on the Game System of Dots and Boxes Based on Reinforcement Learning." *Chinese Control And Decision Conference (CCDC)*.
+
+2. **Silver, D., et al.** (2017). "Mastering Chess and Shogi by Self-Play with a General Reinforcement Learning Algorithm." *arXiv:1712.01815*.
+
+3. **Silver, D., Huang, A., Maddison, C.J., et al.** (2016). "Mastering the Game of Go with Deep Neural Networks and Tree Search." *Nature*, 529, 484–489.
+
+4. **Mnih, V., Kavukcuoglu, K., Silver, D., et al.** (2013). "Playing Atari with Deep Reinforcement Learning." *arXiv:1312.5602*.
+
+5. **Josh Varty's AlphaZeroSimple**: https://github.com/JoshVarty/AlphaZeroSimple
+
+6. **Flask Documentation**: https://flask.palletsprojects.com
