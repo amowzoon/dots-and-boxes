@@ -193,7 +193,7 @@ Loop until convergence or until max_training_cycles is reached:
    nn_simulations = 100 
    max_training_cycles = 50
    eval_games = 10
-      * Note that eval_games needs to be an even number for the evaluator to work as it need the model and MCTS go first an even number of times
+   # eval_games needs to be an even number for the evaluator to work as it need the model and MCTS go first an even number of times
    ```
 3. Run all cells to begin self-play and training
 4. Trained model saves as `best_model_{size}x{size}.pth`
