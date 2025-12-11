@@ -196,6 +196,9 @@ Loop until convergence or until max_training_cycles is reached:
    ```
 3. Run all cells to begin self-play training
 4. Trained model saves as `best_model_{size}x{size}.pth`
+5. Average losses and win rates are written to a file "losses.txt" and "win_rates.txt" in the same documentation
+   * The file will be overwritten every time trainer.trian() is run, please rename your files after running training to save losses
+6. To plot losses ensure that the file name for loses is the same as "loses_{n}x{n}.txt" or edit the code where marked to match file names
 
 **Training Resources Used**:
 - Google Colab T4 GPU
