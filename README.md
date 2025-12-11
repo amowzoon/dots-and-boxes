@@ -190,15 +190,16 @@ Loop until convergence or until max_training_cycles is reached:
 2. Configure hyperparameters:
    ```python
    BOARD_SIZE = 2  # or 3, 4, etc.
-   NUM_MCTS_SIMS = 50
-   NUM_TRAINING_CYCLES = 50
-   GAMES_PER_CYCLE = 300
+   nn_simulations = 100 
+   max_training_cycles = 50
+   eval_games = 10
+      * Note that eval_games needs to be an even number for the evaluator to work as it need the model and MCTS go first an even number of times
    ```
-3. Run all cells to begin self-play training
+3. Run all cells to begin self-play and training
 4. Trained model saves as `best_model_{size}x{size}.pth`
-5. Average losses and win rates are written to a file "losses.txt" and "win_rates.txt" in the same documentation
+5. Average losses and win rates are written to a file "losses_{size}x{size}.txt" and "win_rates_{size}x{size}.txt" in the same documentation
    * The file will be overwritten every time trainer.trian() is run, please rename your files after running training to save losses
-6. To plot losses ensure that the file name for loses is the same as "loses_{n}x{n}.txt" or edit the code where marked to match file names
+6. To plot losses ensure that the file name for loses is the same as "loses_{size}x{size}.txt" or edit the code where marked to match file names
 
 **Training Resources Used**:
 - Google Colab T4 GPU
