@@ -120,7 +120,7 @@ The neural network provides both move probabilities (to guide selection) and pos
 
 **Training Cycle**:
 ```
-Loop until convergence:
+Loop until convergence or until max_training_cycles is reached:
     1. Generate 300+ self-play games
     2. Train neural network for 50 epochs on collected data
     3. Every 10 cycles: Evaluate against pure MCTS baseline
